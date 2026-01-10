@@ -25,8 +25,10 @@
     let lastTotals = null;
     let lastPendingAuthorHp = null;
     let pendingAuthorRows = [];
+    let pendingAuthorSort = { key: 'hbd', dir: 'desc' };
     let lastPendingCurationHp = null;
     let pendingCurationRows = [];
+    let pendingCurationSort = { key: 'payoutMs', dir: 'asc' };
     let pendingCurationEligibleVoteCount = 0;
     let pendingCurationProcessedVoteCount = 0;
     let analyticsRange = 7;
@@ -157,6 +159,7 @@
     }
     bindCollapse('pendingAuthorToggle', 'pendingAuthorBodyWrap');
     bindCollapse('pendingCurationToggle', 'pendingCurationBodyWrap');
+    initPendingSorters();
 
     function loadRpcPreference() {
       try {
@@ -401,6 +404,125 @@
 
     function parseTime(val) {
       return parseHiveTime(val);
+    }
+
+    function compareSortValues(a, b, dir = 'asc') {
+      const aMissing = a === null || a === undefined || Number.isNaN(a);
+      const bMissing = b === null || b === undefined || Number.isNaN(b);
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      let cmp = 0;
+      if (typeof a === 'number' && typeof b === 'number') {
+        cmp = a - b;
+      } else {
+        const aStr = String(a).toLowerCase();
+        const bStr = String(b).toLowerCase();
+        if (aStr < bStr) cmp = -1;
+        else if (aStr > bStr) cmp = 1;
+      }
+      return dir === 'desc' ? -cmp : cmp;
+    }
+
+    function updateSortIndicators(table, sortState) {
+      if (!table || !sortState) return;
+      const headers = table.querySelectorAll('thead th[data-sort-key]');
+      headers.forEach(th => {
+        const key = th.dataset.sortKey;
+        const isActive = key && key === sortState.key;
+        th.classList.toggle('sorted-asc', isActive && sortState.dir === 'asc');
+        th.classList.toggle('sorted-desc', isActive && sortState.dir === 'desc');
+        if (isActive) {
+          th.setAttribute('aria-sort', sortState.dir === 'asc' ? 'ascending' : 'descending');
+        } else {
+          th.removeAttribute('aria-sort');
+        }
+      });
+    }
+
+    function initSortableTable(tableSelector, sortState, onSort) {
+      const table = document.querySelector(tableSelector);
+      if (!table) return;
+      const headers = Array.from(table.querySelectorAll('thead th[data-sort-key]'));
+      headers.forEach(th => {
+        th.classList.add('sortable');
+        th.addEventListener('click', () => {
+          const key = th.dataset.sortKey;
+          if (!key) return;
+          if (sortState.key === key) {
+            sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            sortState.key = key;
+            sortState.dir = th.dataset.sortDefault || 'asc';
+          }
+          updateSortIndicators(table, sortState);
+          if (typeof onSort === 'function') onSort();
+        });
+      });
+      updateSortIndicators(table, sortState);
+    }
+
+    function initPendingSorters() {
+      initSortableTable('.pending-author-table', pendingAuthorSort, () => {
+        renderPendingAuthorTable(pendingAuthorRows, lastPriceFeed);
+      });
+      initSortableTable('.pending-curation-table', pendingCurationSort, () => {
+        renderPendingCurationTable(pendingCurationRows, lastPriceFeed);
+      });
+    }
+
+    function sortPendingAuthorRows(rows, price) {
+      if (!Array.isArray(rows)) return [];
+      const sortKey = pendingAuthorSort?.key || 'hbd';
+      const sortDir = pendingAuthorSort?.dir || 'desc';
+      const getValue = (row) => {
+        switch (sortKey) {
+          case 'type':
+            return row.isComment ? 1 : 0;
+          case 'title':
+            return row.title || `${row.author || ''}/${row.permlink || ''}`;
+          case 'payoutMs':
+            return row.payoutMs ?? null;
+          case 'hbd':
+            return row.hbd ?? null;
+          case 'hp':
+            return row.hpEq ?? (price ? (row.hbd || 0) / price : 0);
+          case 'beneficiaryCut':
+            return row.beneficiaryCut ?? null;
+          default:
+            return row[sortKey];
+        }
+      };
+      return [...rows].sort((a, b) => compareSortValues(getValue(a), getValue(b), sortDir));
+    }
+
+    function sortPendingCurationRows(rows, price) {
+      if (!Array.isArray(rows)) return [];
+      const sortKey = pendingCurationSort?.key || 'payoutMs';
+      const sortDir = pendingCurationSort?.dir || 'asc';
+      const getValue = (row) => {
+        switch (sortKey) {
+          case 'type':
+            return row.isComment ? 1 : 0;
+          case 'title':
+            return row.title || `${row.author || ''}/${row.permlink || ''}`;
+          case 'payoutMs':
+            return row.payoutMs ?? null;
+          case 'votedAfterMs':
+            return row.votedAfterMs ?? null;
+          case 'weightPct':
+            return row.weightPct ?? null;
+          case 'efficiency':
+            return row.efficiency ?? null;
+          case 'hbd':
+            return row.hbd ?? null;
+          case 'hp':
+            return row.hp ?? (price ? (row.hbd || 0) / price : 0);
+          default:
+            return row[sortKey];
+        }
+      };
+      return [...rows].sort((a, b) => compareSortValues(getValue(a), getValue(b), sortDir));
     }
 
     function renderPendingAuthor(priceFeed, pendingHp = lastPendingAuthorHp) {}
@@ -1654,15 +1776,18 @@
     function renderPendingAuthorTable(rows, priceFeed) {
       const tbody = document.getElementById('pendingAuthorBody');
       if (!tbody) return;
+      if ((!rows || !rows.length) && lastPendingAuthorHp === null) {
+        return;
+      }
       if (!rows || !rows.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="muted">No pending payouts</td></tr>';
         renderPendingAuthorSummary([], priceFeed);
         return;
       }
-      const sorted = [...rows].sort((a, b) => (b.hbd || 0) - (a.hbd || 0));
       const price = priceFeed
         ? (parseAssetFloat(priceFeed.base) / parseAssetFloat(priceFeed.quote || '1.000 HIVE'))
         : (lastPriceFeed ? (parseAssetFloat(lastPriceFeed.base) / parseAssetFloat(lastPriceFeed.quote || '1.000 HIVE')) : 0);
+      const sorted = sortPendingAuthorRows(rows, price);
       tbody.innerHTML = '';
       sorted.forEach(row => {
         const payoutIn = formatDuration(row.payoutMs);
@@ -1754,8 +1879,9 @@
       const price = priceFeed
         ? (parseAssetFloat(priceFeed.base) / parseAssetFloat(priceFeed.quote || '1.000 HIVE'))
         : (lastPriceFeed ? (parseAssetFloat(lastPriceFeed.base) / parseAssetFloat(lastPriceFeed.quote || '1.000 HIVE')) : 0);
+      const sorted = sortPendingCurationRows(rows, price);
       tbody.innerHTML = '';
-      rows.forEach(row => {
+      sorted.forEach(row => {
         const payoutIn = formatDuration(row.payoutMs);
         const url = safeHiveUrl(row.author, row.permlink);
         const typeIcon = row.isComment ? '💬' : '📝';
@@ -1813,7 +1939,7 @@
 
         tbody.appendChild(tr);
       });
-      renderPendingCurationSummary(rows, priceFeed);
+      renderPendingCurationSummary(sorted, priceFeed);
     }
 
     function renderPendingCurationSummary(rows, priceFeed) {

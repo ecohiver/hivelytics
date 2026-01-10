@@ -235,12 +235,12 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th style="width:32px;">Type</th>
-                  <th>Title</th>
-                  <th class="numeric">Payout In</th>
-                  <th class="numeric">Value</th>
-                  <th class="numeric">HP</th>
-                  <th>Beneficiary</th>
+                  <th style="width:32px;" data-sort-key="type" data-sort-default="asc">Type</th>
+                  <th data-sort-key="title" data-sort-default="asc">Title</th>
+                  <th class="numeric" data-sort-key="payoutMs" data-sort-default="asc">Payout In</th>
+                  <th class="numeric" data-sort-key="hbd" data-sort-default="desc">Value</th>
+                  <th class="numeric" data-sort-key="hp" data-sort-default="desc">HP</th>
+                  <th data-sort-key="beneficiaryCut" data-sort-default="desc">Beneficiary</th>
                 </tr>
               </thead>
               <tbody id="pendingAuthorBody">
@@ -282,14 +282,14 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th>Type</th>
-                  <th>Title</th>
-                  <th class="numeric">Payout In</th>
-                  <th class="numeric">Voted After</th>
-                  <th class="numeric">Weight</th>
-                  <th class="numeric">Eff.</th>
-                  <th class="numeric">Value</th>
-                  <th class="numeric">HP</th>
+                  <th data-sort-key="type" data-sort-default="asc">Type</th>
+                  <th data-sort-key="title" data-sort-default="asc">Title</th>
+                  <th class="numeric" data-sort-key="payoutMs" data-sort-default="asc">Payout In</th>
+                  <th class="numeric" data-sort-key="votedAfterMs" data-sort-default="asc">Voted After</th>
+                  <th class="numeric" data-sort-key="weightPct" data-sort-default="desc">Weight</th>
+                  <th class="numeric" data-sort-key="efficiency" data-sort-default="desc">Eff.</th>
+                  <th class="numeric" data-sort-key="hbd" data-sort-default="desc">Value</th>
+                  <th class="numeric" data-sort-key="hp" data-sort-default="desc">HP</th>
                 </tr>
               </thead>
               <tbody id="pendingCurationBody">

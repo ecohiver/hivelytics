@@ -503,6 +503,21 @@ th { text-align: left; color: var(--muted); font-size: 12px; letter-spacing: 0.0
 .pending-table td:nth-child(2) { white-space: normal; }
 .pending-table tr:nth-child(odd) { background: rgba(255,255,255,0.02); }
 .pending-table tr:hover { background: rgba(255,255,255,0.05); }
+.pending-table thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.pending-table thead th.sortable::after {
+  content: '';
+  margin-left: 6px;
+  opacity: 0.6;
+}
+.pending-table thead th.sortable.sorted-asc::after {
+  content: ' ^';
+}
+.pending-table thead th.sortable.sorted-desc::after {
+  content: ' v';
+}
 .pending-icon { text-align: center; }
 .pending-title a { color: #bfdbfe; text-decoration: none; }
 .pending-title a:hover { text-decoration: underline; }
