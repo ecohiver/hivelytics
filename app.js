@@ -531,16 +531,17 @@
           if (p.is_paidout === true) return;
           const beneficiaries = Array.isArray(p.beneficiaries) ? p.beneficiaries : [];
           const beneCut = beneficiaries.reduce((acc, b) => acc + (Number(b.weight) || 0), 0) / 10000;
-          const authorShare = Math.max(0, Math.min(1, 1 - beneCut));
+          const authorBase = pending * 0.5;
+          const authorNet = authorBase * Math.max(0, Math.min(1, 1 - beneCut));
           seen.add(key);
-          totalHbd += pending * authorShare;
+          totalHbd += authorNet;
           rows.push({
             author: p.author,
             permlink: p.permlink,
             title: p.title,
             isComment: !!p.parent_author,
             payoutMs: cashout - Date.now(),
-            hbd: pending * authorShare,
+            hbd: authorNet,
             hpEq: null,
             beneficiaryCut: beneCut
           });
