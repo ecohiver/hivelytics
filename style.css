@@ -66,39 +66,71 @@ h1 {
   align-items: center;
   box-shadow: var(--card-shadow);
 }
-.controls.rpc-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  padding: 12px;
+.settings-wrap {
+  position: relative;
 }
-.rpc-header {
+.settings-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  box-shadow: var(--card-shadow);
 }
-.rpc-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e5e7eb;
-  letter-spacing: -0.01em;
+.settings-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text);
 }
-.rpc-fields {
-  display: grid;
-  gap: 10px;
-  width: 100%;
+.settings-btn .rpc-header-dot {
+  margin-left: 0;
 }
-.rpc-field {
-  display: grid;
+.settings-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  min-width: 320px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #141923;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+  flex-direction: column;
+  gap: 14px;
+}
+.settings-popover.open {
+  display: flex;
+}
+.settings-field {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  min-width: 0;
 }
-.rpc-label {
+.settings-label {
   font-size: 12px;
   font-weight: 600;
   color: #d1d5db;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.settings-popover select,
+.settings-popover input {
+  width: 100%;
+  padding: 10px 36px 10px 10px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(15, 19, 28, 0.6);
+  font-size: 13px;
+}
+.settings-popover select:focus,
+.settings-popover input:focus {
+  border-color: #7dd3fc;
+  box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.18);
 }
 .controls label {
   font-size: 13px;
@@ -176,19 +208,6 @@ select, input, button {
   font-size: 14px;
   outline: none;
   transition: border 0.2s, transform 0.1s;
-}
-.controls.rpc-controls select,
-.controls.rpc-controls input {
-  width: 100%;
-  padding: 12px 44px 12px 12px;
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(15, 19, 28, 0.6);
-  font-size: 13px;
-}
-.controls.rpc-controls select:focus,
-.controls.rpc-controls input:focus {
-  border-color: #7dd3fc;
-  box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.18);
 }
 .controls.account-controls input {
   background: rgba(15, 19, 28, 0.6);
@@ -566,8 +585,10 @@ footer {
 @media (max-width: 700px) {
   header { flex-direction: column; }
   .controls { width: 100%; }
-  .controls.rpc-controls {
-    align-items: stretch;
+  .settings-popover {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    right: -8px;
   }
   .rpc-status { text-align: left; }
   .input-group { flex-direction: column; }

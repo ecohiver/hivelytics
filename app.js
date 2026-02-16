@@ -6,6 +6,9 @@
     const rpcToggleEl = document.getElementById('rpcToggle');
     const customRpcEl = document.getElementById('customRpc');
     const voteSlider = document.getElementById('voteSlider');
+    const frontendSelect = document.getElementById('frontendSelect');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPopover = document.getElementById('settingsPopover');
     const analyticsPills = Array.from(document.querySelectorAll('.pill.toggle'));
     const avatarPlaceholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
     const HIVE_IMAGE_PROXY = 'https://images.hive.blog';
@@ -126,6 +129,22 @@
       });
     }
     loadRpcPreference();
+    loadFrontendPreference();
+    frontendSelect.addEventListener('change', () => {
+      saveFrontendPreference();
+      renderPendingAuthorTable(pendingAuthorRows, lastPriceFeed);
+      renderPendingCurationTable(pendingCurationRows, lastPriceFeed);
+    });
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      settingsPopover.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+      if (!settingsPopover.contains(e.target) && !settingsBtn.contains(e.target)) {
+        settingsPopover.classList.remove('open');
+      }
+    });
+
     setRpcDot('', 'Not connected');
     setStatus('');
 
@@ -202,6 +221,23 @@
         localStorage.setItem('hivelytics.rpc', JSON.stringify({ value, custom }));
       } catch (err) {
         console.warn('failed to save rpc pref', err);
+      }
+    }
+
+    function loadFrontendPreference() {
+      try {
+        const saved = localStorage.getItem('hivelytics.frontend');
+        if (saved) frontendSelect.value = saved;
+      } catch (err) {
+        console.warn('failed to load frontend pref', err);
+      }
+    }
+
+    function saveFrontendPreference() {
+      try {
+        localStorage.setItem('hivelytics.frontend', frontendSelect.value);
+      } catch (err) {
+        console.warn('failed to save frontend pref', err);
       }
     }
 
@@ -1767,7 +1803,8 @@
       const cleanPerm = typeof permlink === 'string' ? permlink.replace(/[^A-Za-z0-9._-]/g, '') : '';
       if (!cleanAuthor || !cleanPerm) return '#';
       try {
-        return `https://hive.blog/@${encodeURIComponent(cleanAuthor)}/${encodeURIComponent(cleanPerm)}`;
+        const host = frontendSelect.value || 'hive.blog';
+        return `https://${host}/@${encodeURIComponent(cleanAuthor)}/${encodeURIComponent(cleanPerm)}`;
       } catch (e) {
         return '#';
       }
