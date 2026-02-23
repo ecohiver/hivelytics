@@ -1,4 +1,4 @@
-    const statusEl = document.getElementById('status');
+const statusEl = document.getElementById('status');
     const loadBtn = document.getElementById('loadBtn');
     const usernameEl = document.getElementById('username');
     const rpcSelect = document.getElementById('rpc');
@@ -31,7 +31,7 @@
     let pendingAuthorSort = { key: 'hbd', dir: 'desc' };
     let lastPendingCurationHp = null;
     let pendingCurationRows = [];
-    let pendingCurationSort = { key: 'payoutMs', dir: 'asc' };
+    let pendingCurationSort = { key: "payoutMs", dir: 'asc' };
     let pendingCurationEligibleVoteCount = 0;
     let pendingCurationProcessedVoteCount = 0;
     let analyticsRange = 7;
@@ -951,6 +951,92 @@
       }
     }
 
+    // Render the core wallet balances
+    function renderWalletBalances(account) {
+      if (!account) return;
+      document.getElementById('walletLiquidHive').textContent = account.balance || '—';
+      document.getElementById('walletLiquidHbd').textContent = account.hbd_balance || '—';
+      document.getElementById('walletSavingsHive').textContent = account.savings_balance || '—';
+      document.getElementById('walletSavingsHbd').textContent = account.savings_hbd_balance || '—';
+    }
+
+    // Fetch and render Hive-Engine Tokens
+    async function fetchEngineTokens(username, requestId = activeLoadId) {
+      const tbody = document.getElementById('engineTokensBody');
+      const tokenPill = document.getElementById('tokenCountPill');
+      
+      tbody.innerHTML = '<tr><td colspan="2" class="muted">Loading tokens…</td></tr>';
+      tokenPill.textContent = 'Loading…';
+
+      const payload = {
+        jsonrpc: "2.0",
+        method: "find",
+        params: {
+          contract: "tokens",
+          table: "balances",
+          query: { account: username },
+          limit: 1000
+        },
+        id: 1
+      };
+
+      try {
+        const response = await fetch("https://api.primersion.com/contracts", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        // Check for race conditions
+        if (isStale(requestId)) return;
+
+        const tokens = data.result;
+
+        if (!tokens || tokens.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="2" class="muted">No engine tokens found</td></tr>';
+          tokenPill.textContent = 'Tokens: 0';
+          return;
+        }
+
+        // Filter out zero balances and sort alphabetically
+        const activeTokens = tokens.filter(t => parseFloat(t.balance) > 0 || parseFloat(t.stake) > 0);
+        activeTokens.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+        tokenPill.textContent = `Tokens: ${activeTokens.length}`;
+        tbody.innerHTML = '';
+
+        // Render rows using document.createElement to prevent XSS
+        activeTokens.forEach(token => {
+          const liquid = parseFloat(token.balance) || 0;
+          const staked = parseFloat(token.stake) || 0;
+          const total = liquid + staked;
+
+          const tr = document.createElement('tr');
+          
+          const symbolTd = document.createElement('td');
+          symbolTd.className = 'pending-title'; 
+          symbolTd.textContent = token.symbol;
+          tr.appendChild(symbolTd);
+
+          const amountTd = document.createElement('td');
+          amountTd.className = 'numeric';
+          amountTd.textContent = total.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3});
+          tr.appendChild(amountTd);
+
+          tbody.appendChild(tr);
+        });
+
+      } catch (error) {
+        console.error("Engine API Error:", error);
+        if (!isStale(requestId)) {
+          tbody.innerHTML = '<tr><td colspan="2" class="muted error">Failed to load tokens</td></tr>';
+          tokenPill.textContent = 'Error';
+        }
+      }
+    }
+
     async function handleLoad() {
       const requestId = ++activeLoadId;
       const username = usernameEl.value.trim().replace(/^@/, '');
@@ -983,14 +1069,6 @@
       loadBtn.textContent = 'Loading…';
 
       try {
-        lastRcAccount = rcAccount || null;
-        lastProfile = profile || null;
-
-        renderAccount(account, dgp, rewardFund, priceFeed, rcAccount, profile);
-        renderWalletBalances(account);                                
-        fetchEngineTokens(username, requestId);                       
-
-        fetchPendingAuthor(client, username, priceFeed, requestId);
         const client = new hiveLib.Client(rpc, { timeout: 8000 });
         const [account] = await client.database.getAccounts([username]);
         if (!account) {
@@ -1016,6 +1094,8 @@
         lastProfile = profile || null;
 
         renderAccount(account, dgp, rewardFund, priceFeed, rcAccount, profile);
+        renderWalletBalances(account);
+        fetchEngineTokens(username, requestId);
 
         fetchPendingAuthor(client, username, priceFeed, requestId);
         fetchPendingCuration(client, username, priceFeed, rewardFund, dgp, requestId);
@@ -1059,8 +1139,8 @@
       document.getElementById('statSentDel').textContent = '—';
       document.getElementById('statPowerDown').textContent = '—';
       document.getElementById('statRc').textContent = '—';
-      document.getElementById('statPowerDown').textContent = '—';
-      document.getElementById('statRc').textContent = '—';
+      
+      // Clear Wallet UI
       document.getElementById('walletLiquidHive').textContent = '—';
       document.getElementById('walletLiquidHbd').textContent = '—';
       document.getElementById('walletSavingsHive').textContent = '—';
@@ -1068,8 +1148,6 @@
       document.getElementById('tokenCountPill').textContent = 'Tokens: —';
       const engineBody = document.getElementById('engineTokensBody');
       if (engineBody) engineBody.innerHTML = '<tr><td colspan="2" class="muted">No data</td></tr>';
-
-
 
       const aprPill = document.getElementById('curationAprPill');
       if (aprPill) aprPill.textContent = 'Curation APR —';
@@ -1109,92 +1187,6 @@
         document.getElementById('dataWrap').style.display = 'none';
       }
     }
-
-    // Render the core wallet balances
-function renderWalletBalances(account) {
-  if (!account) return;
-  document.getElementById('walletLiquidHive').textContent = account.balance || '—';
-  document.getElementById('walletLiquidHbd').textContent = account.hbd_balance || '—';
-  document.getElementById('walletSavingsHive').textContent = account.savings_balance || '—';
-  document.getElementById('walletSavingsHbd').textContent = account.savings_hbd_balance || '—';
-}
-
-// Fetch and render Hive-Engine Tokens
-async function fetchEngineTokens(username, requestId = activeLoadId) {
-  const tbody = document.getElementById('engineTokensBody');
-  const tokenPill = document.getElementById('tokenCountPill');
-  
-  tbody.innerHTML = '<tr><td colspan="2" class="muted">Loading tokens…</td></tr>';
-  tokenPill.textContent = 'Loading…';
-
-  const payload = {
-    jsonrpc: "2.0",
-    method: "find",
-    params: {
-      contract: "tokens",
-      table: "balances",
-      query: { account: username },
-      limit: 1000
-    },
-    id: 1
-  };
-
-  try {
-    const response = await fetch("https://api.primersion.com/contracts", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    // Check for race conditions using your existing isStale mechanism
-    if (isStale(requestId)) return;
-
-    const tokens = data.result;
-
-    if (!tokens || tokens.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="2" class="muted">No engine tokens found</td></tr>';
-      tokenPill.textContent = 'Tokens: 0';
-      return;
-    }
-
-    // Filter out zero balances and sort alphabetically
-    const activeTokens = tokens.filter(t => parseFloat(t.balance) > 0 || parseFloat(t.stake) > 0);
-    activeTokens.sort((a, b) => a.symbol.localeCompare(b.symbol));
-
-    tokenPill.textContent = `Tokens: ${activeTokens.length}`;
-    tbody.innerHTML = '';
-
-    // Render rows using document.createElement to prevent XSS from token symbols
-    activeTokens.forEach(token => {
-      const liquid = parseFloat(token.balance) || 0;
-      const staked = parseFloat(token.stake) || 0;
-      const total = liquid + staked;
-
-      const tr = document.createElement('tr');
-      
-      const symbolTd = document.createElement('td');
-      symbolTd.className = 'pending-title'; // Reusing your bold title class
-      symbolTd.textContent = token.symbol;
-      tr.appendChild(symbolTd);
-
-      const amountTd = document.createElement('td');
-      amountTd.className = 'numeric';
-      amountTd.textContent = total.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3});
-      tr.appendChild(amountTd);
-
-      tbody.appendChild(tr);
-    });
-
-  } catch (error) {
-    console.error("Engine API Error:", error);
-    if (!isStale(requestId)) {
-      tbody.innerHTML = '<tr><td colspan="2" class="muted error">Failed to load tokens</td></tr>';
-      tokenPill.textContent = 'Error';
-    }
-  }
-}
 
     function renderAccount(account, dgp, rewardFund, priceFeed, rcAccount = null, profile = null) {
       lastAccount = account;

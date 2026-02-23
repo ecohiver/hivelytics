@@ -114,7 +114,7 @@
         </div>
       </div>
       <div class="card" style="grid-column: span 2;">
-        <div class="inline" style="justify-content:space-between; gap:12px;">
+        <div class="inline" style="margin-bottom:12px; justify-content:space-between;">
           <h3>Received Rewards</h3>
           <div class="inline" style="gap:8px;">
             <span class="pill green" id="curationAprPill">Curation APR —</span>
@@ -226,7 +226,59 @@
       </div>
     </div>
 
-    <div class="stacked">
+    <div class="grid" style="margin-top:16px;">
+      <div class="card">
+        <div class="inline" style="margin-bottom:12px;">
+          <h3>Wallet Balances</h3>
+          <span class="pill green">Core</span>
+        </div>
+        <div class="list">
+          <div class="row">
+            <div class="label">Liquid HIVE</div>
+            <div class="value" id="walletLiquidHive">—</div>
+          </div>
+          <div class="row">
+            <div class="label">Liquid HBD</div>
+            <div class="value" id="walletLiquidHbd">—</div>
+          </div>
+          <div class="row">
+            <div class="label">Savings HIVE</div>
+            <div class="value" id="walletSavingsHive">—</div>
+          </div>
+          <div class="row">
+            <div class="label">Savings HBD</div>
+            <div class="value" id="walletSavingsHbd">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: span 2;">
+        <div class="inline" style="margin-bottom:6px; justify-content:space-between;">
+          <h3>Hive-Engine Tokens</h3>
+          <span class="pill" id="tokenCountPill">Tokens: —</span>
+        </div>
+        <div id="engineTokensBodyWrap" class="collapse-body">
+          <div class="table-wrap pending-scroll" style="max-height: 220px; overflow-y: auto;"> 
+            <table class="pending-table">
+              <colgroup>
+                <col>
+                <col style="width:120px;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th style="text-align: left;">Token Symbol</th>
+                  <th class="numeric">Total Balance (Liq + Staked)</th>
+                </tr>
+              </thead>
+              <tbody id="engineTokensBody">
+                <tr><td colspan="2" class="muted">No data</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="stacked" style="margin-top:16px;">
       <div class="card pending-card">
         <div class="inline" style="margin-bottom:6px;">
           <h3>Pending Author Rewards</h3>
