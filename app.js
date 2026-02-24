@@ -965,54 +965,87 @@ const statusEl = document.getElementById('status');
       const tbody = document.getElementById('engineTokensBody');
       const tokenPill = document.getElementById('tokenCountPill');
       
-      tbody.innerHTML = '<tr><td colspan="2" class="muted">Loading tokens…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">Loading tokens…</td></tr>';
       tokenPill.textContent = 'Loading…';
 
-      const payload = {
+      const balancesPayload = {
         jsonrpc: "2.0",
         method: "find",
-        params: {
-          contract: "tokens",
-          table: "balances",
-          query: { account: username },
-          limit: 1000
-        },
+        params: { contract: "tokens", table: "balances", query: { account: username }, limit: 1000 },
         id: 1
       };
 
       try {
-        const response = await fetch("https://api.primersion.com/contracts", {
+        // 1. Fetch user balances
+        const balResponse = await fetch("https://api.primersion.com/contracts", {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(balancesPayload)
         });
+        const balData = await balResponse.json();
         
-        const data = await response.json();
-        
-        // Check for race conditions
         if (isStale(requestId)) return;
+        const tokens = balData.result || [];
+        const activeTokens = tokens.filter(t => parseFloat(t.balance) > 0 || parseFloat(t.stake) > 0);
 
-        const tokens = data.result;
-
-        if (!tokens || tokens.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="2" class="muted">No engine tokens found</td></tr>';
+        if (activeTokens.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="muted">No engine tokens found</td></tr>';
           tokenPill.textContent = 'Tokens: 0';
           return;
         }
 
-        // Filter out zero balances and sort alphabetically
-        const activeTokens = tokens.filter(t => parseFloat(t.balance) > 0 || parseFloat(t.stake) > 0);
-        activeTokens.sort((a, b) => a.symbol.localeCompare(b.symbol));
+        // 2. Fetch market metrics for pricing
+        const symbols = activeTokens.map(t => t.symbol);
+        const metricsPayload = {
+          jsonrpc: "2.0",
+          method: "find",
+          params: { contract: "market", table: "metrics", query: { symbol: { $in: symbols } }, limit: 1000 },
+          id: 2
+        };
 
+        const metResponse = await fetch("https://api.primersion.com/contracts", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metricsPayload)
+        });
+        const metData = await metResponse.json();
+        
+        if (isStale(requestId)) return;
+        const metrics = metData.result || [];
+
+        // Map token symbol to its last price in HIVE
+        const priceMap = {};
+        metrics.forEach(m => {
+          priceMap[m.symbol] = parseFloat(m.lastPrice) || 0;
+        });
+
+        // Get current HIVE price in USD (using the global lastPriceFeed variable)
+        let hivePriceUsd = 0;
+        if (lastPriceFeed) {
+          const base = parseAssetFloat(lastPriceFeed.base);
+          const quote = parseAssetFloat(lastPriceFeed.quote || '1.000 HIVE');
+          hivePriceUsd = base / quote;
+        }
+
+        // 3. Process calculations and sort by highest USD value
+        activeTokens.forEach(t => {
+          t.liquid = parseFloat(t.balance) || 0;
+          t.staked = parseFloat(t.stake) || 0;
+          t.total = t.liquid + t.staked;
+          t.priceInHive = priceMap[t.symbol] || 0;
+          t.usdValue = t.total * t.priceInHive * hivePriceUsd;
+        });
+
+        activeTokens.sort((a, b) => {
+          if (b.usdValue !== a.usdValue) return b.usdValue - a.usdValue; // Sort by USD value
+          return a.symbol.localeCompare(b.symbol); // Fallback to alphabetical
+        });
+
+        // 4. Render UI
         tokenPill.textContent = `Tokens: ${activeTokens.length}`;
         tbody.innerHTML = '';
 
-        // Render rows using document.createElement to prevent XSS
         activeTokens.forEach(token => {
-          const liquid = parseFloat(token.balance) || 0;
-          const staked = parseFloat(token.stake) || 0;
-          const total = liquid + staked;
-
           const tr = document.createElement('tr');
           
           const symbolTd = document.createElement('td');
@@ -1020,10 +1053,20 @@ const statusEl = document.getElementById('status');
           symbolTd.textContent = token.symbol;
           tr.appendChild(symbolTd);
 
-          const amountTd = document.createElement('td');
-          amountTd.className = 'numeric';
-          amountTd.textContent = total.toLocaleString(undefined, {minimumFractionDigits: 3, maximumFractionDigits: 3});
-          tr.appendChild(amountTd);
+          const liquidTd = document.createElement('td');
+          liquidTd.className = 'numeric';
+          liquidTd.textContent = token.liquid.toLocaleString(undefined, {maximumFractionDigits: 3});
+          tr.appendChild(liquidTd);
+
+          const stakedTd = document.createElement('td');
+          stakedTd.className = 'numeric';
+          stakedTd.textContent = token.staked.toLocaleString(undefined, {maximumFractionDigits: 3});
+          tr.appendChild(stakedTd);
+
+          const valueTd = document.createElement('td');
+          valueTd.className = 'numeric';
+          valueTd.textContent = token.usdValue > 0.005 ? `$${token.usdValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—';
+          tr.appendChild(valueTd);
 
           tbody.appendChild(tr);
         });
@@ -1031,7 +1074,7 @@ const statusEl = document.getElementById('status');
       } catch (error) {
         console.error("Engine API Error:", error);
         if (!isStale(requestId)) {
-          tbody.innerHTML = '<tr><td colspan="2" class="muted error">Failed to load tokens</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="4" class="muted error">Failed to load tokens</td></tr>';
           tokenPill.textContent = 'Error';
         }
       }
@@ -1147,7 +1190,7 @@ const statusEl = document.getElementById('status');
       document.getElementById('walletSavingsHbd').textContent = '—';
       document.getElementById('tokenCountPill').textContent = 'Tokens: —';
       const engineBody = document.getElementById('engineTokensBody');
-      if (engineBody) engineBody.innerHTML = '<tr><td colspan="2" class="muted">No data</td></tr>';
+      if (engineBody) engineBody.innerHTML = '<tr><td colspan="4" class="muted">No data</td></tr>';
 
       const aprPill = document.getElementById('curationAprPill');
       if (aprPill) aprPill.textContent = 'Curation APR —';
